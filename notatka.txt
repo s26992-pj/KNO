@@ -1,0 +1,50 @@
+1. Opis danych
+Używamy zbioru wine.data któy zawiera próbki z 3 różnyh odmian win posiadajy 13 cech chemicznych.
+
+Dane wczytano ręcznie z pliku CSV, przetasowano (sample(frac=1)), a następnie zakodowano etykiety metodą one-hot.
+Wszystkie cechy zostały standaryzowane (StandardScaler), a dane podzielono na zbiory treningowy i testowy.
+
+2. Funkcja celu i aktywacja
+
+Ponieważ klasy zakodowano one-hot, zastosowano:
+
+funkcję straty: categorical_crossentropy
+
+aktywację wyjścia: softmax
+
+3. Modele
+
+Zaimplementowano dwa modele typu Sequential:
+
+Model	Architektura	Aktywacje	Inicjalizacja	Dodatki
+Model_1_Simple	13 → 16 → 3	ReLU / Softmax	He normal	–
+Model_2_Deep	13 → 64 → 32 → 3	ReLU / Softmax	Glorot / He uniform	Dropout(0.3)
+
+Parametry treningu:
+
+Model 1: epochs=100, lr=0.001, batch_size=16
+
+Model 2: epochs=150, lr=0.0005, batch_size=8
+
+4. Wyniki i krzywe uczenia
+
+Model_1_Simple	0.96	szybka konwergencja, lekki overfitting
+Model_2_Deep	0.98	stabilny przebieg, niższy loss walidacyjny
+
+Krzywe uczenia pokazują, że Model 2 ma łagodniejszy spadek straty i lepiej generalizuje.
+Model 1 osiąga dobry wynik, ale szybciej się przeucza.
+
+5. Wnioski
+
+Lepszy okazał się Model_2_Deep, który dzięki większej liczbie neuronów i warstw oraz zastosowaniu Dropouta lepiej dopasowuje się do nieliniowych zależności w danych, jednocześnie ograniczając przeuczenie.
+
+6. Predykcja użytkownika
+
+Program umożliwia wprowadzenie 13 cech wina z konsoli (biblioteka argparse) i zwraca przewidywaną kategorię (1, 2 lub 3).
+
+Przykład:
+python script.py --Alcohol 12.37 --Malic_Acid 1.07 --Ash 2.10 --Alcalinity_of_Ash 18.5 --Magnesium 88 --Total_Phenols 3.52 --Flavanoids 3.75 --Nonflavanoid_Phenols 0.24 --Proanthocyanins 1.95 --Color_Intensity 4.50 --Hue 1.04 --OD280/OD315 2.77 --Proline 660
+Co daje przywidywaną kategorie wina : 2
+
+7. Podsumowanie
+Projekt wczytuje dane, umożliwia podanie parametrów i ocene który z 2 modeli jest lepszy.
