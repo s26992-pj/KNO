@@ -80,7 +80,7 @@ def train_and_plot(model, X_train, y_train, X_test, y_test, epochs=100, lr=0.001
 
     plt.tight_layout()
     plt.show()
-    plt.savefig(model.name + '.png')
+    plt.imsave('img.png',img)
 
 
     loss, acc = model.evaluate(X_test, y_test, verbose=0)
