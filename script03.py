@@ -7,12 +7,15 @@ from sklearn.preprocessing import StandardScaler
 import matplotlib.pyplot as plt
 import argparse
 import sys
+import joblib
 
 data = pd.read_csv("wine.data", header=None)
 
-columns = ["Class", "Alcohol", "Malic_Acid", "Ash", "Alcalinity_of_Ash", "Magnesium",
-           "Total_Phenols", "Flavanoids", "Nonflavanoid_Phenols", "Proanthocyanins",
-           "Color_Intensity", "Hue", "OD280/OD315", "Proline"]
+columns = [
+    "Class", "Alcohol", "Malic_Acid", "Ash", "Alcalinity_of_Ash", "Magnesium",
+    "Total_Phenols", "Flavanoids", "Nonflavanoid_Phenols", "Proanthocyanins",
+    "Color_Intensity", "Hue", "OD280/OD315", "Proline"
+]
 data.columns = columns
 
 data = data.sample(frac=1, random_state=42).reset_index(drop=True)
@@ -25,7 +28,9 @@ y = tf.keras.utils.to_categorical(y, num_classes=3)
 scaler = StandardScaler()
 X = scaler.fit_transform(X)
 
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42
+)
 
 
 def build_model_1():
@@ -62,6 +67,7 @@ def train_and_plot(model, X_train, y_train, X_test, y_test, epochs=100, lr=0.001
     )
 
     plt.figure(figsize=(10, 4))
+
     plt.subplot(1, 2, 1)
     plt.plot(history.history['accuracy'], label='Train acc')
     plt.plot(history.history['val_accuracy'], label='Val acc')
@@ -79,41 +85,52 @@ def train_and_plot(model, X_train, y_train, X_test, y_test, epochs=100, lr=0.001
     plt.legend()
 
     plt.tight_layout()
+    plt.savefig(f'{model.name}.png')
     plt.show()
-    plt.imsave('img.png',img)
-
 
     loss, acc = model.evaluate(X_test, y_test, verbose=0)
     print(f"{model.name} - Test accuracy: {acc:.4f}")
     return model, acc
 
 
-model1, acc1 = train_and_plot(build_model_1(), X_train, y_train, X_test, y_test, epochs=100, lr=0.001, batch_size=16)
-model2, acc2 = train_and_plot(build_model_2(), X_train, y_train, X_test, y_test, epochs=150, lr=0.0005, batch_size=8)
+def train():
+    model1, acc1 = train_and_plot(
+        build_model_1(), X_train, y_train, X_test, y_test,
+        epochs=100, lr=0.001, batch_size=16
+    )
 
-better_model = model1 if acc1 > acc2 else model2
-print(f"\nLepszy model: {better_model.name}")
+    model2, acc2 = train_and_plot(
+        build_model_2(), X_train, y_train, X_test, y_test,
+        epochs=150, lr=0.0005, batch_size=8
+    )
 
-better_model.save("best_wine_model.keras")
-import joblib
+    better_model = model1 if acc1 > acc2 else model2
 
-joblib.dump(scaler, "scaler.pkl")
+    print(f"\nLepszy model: {better_model.name}")
+
+    joblib.dump(scaler, "scaler.pkl")
+    better_model.save("best_wine_model.keras")
+
+    return better_model
 
 
 def predict_from_cli():
+    model = tf.keras.models.load_model("best_wine_model.keras")
+    scaler = joblib.load("scaler.pkl")
+
     parser = argparse.ArgumentParser(description="Klasyfikacja wina - podaj 13 parametrów.")
-    for i, col in enumerate(columns[1:]):
+    for col in columns[1:]:
         parser.add_argument(f"--{col}", type=float, required=True)
     args = parser.parse_args()
 
     user_input = np.array([[getattr(args, col) for col in columns[1:]]])
-    scaler = joblib.load("scaler.pkl")
-    model = tf.keras.models.load_model("best_wine_model.keras")
     user_input = scaler.transform(user_input)
 
     pred = np.argmax(model.predict(user_input), axis=1)[0] + 1
-    print(f" Przewidywana kategoria wina: {pred}")
+    print(f"Przewidywana kategoria wina: {pred}")
 
 
 if __name__ == "__main__" and len(sys.argv) > 1:
     predict_from_cli()
+else:
+    train()
