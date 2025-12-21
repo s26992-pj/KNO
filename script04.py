@@ -1,7 +1,10 @@
+import argparse
+
 import pandas as pd
 import numpy as np
 import tensorflow as tf
 import keras_tuner as kt
+from keras.src.layers import Identity
 from tensorflow.keras.models import Sequential, load_model
 from tensorflow.keras.layers import Dense, Dropout, Input, Normalization
 from tensorflow.keras.optimizers import Adam
@@ -40,10 +43,15 @@ def load_data(filepath):
     return X_train, X_test, y_train, y_test
 
 
-def create_model(normalization_layer, units, dropout_rate, learning_rate):
+def create_model(normalization_layer, units, dropout_rate, learning_rate, use_norm):
     model = Sequential()
     model.add(Input(shape=(13,)))
     model.add(normalization_layer)
+
+    if use_norm:
+        model.add(normalization_layer)
+    else:
+        model.add(Identity())
 
     model.add(Dense(units, activation='relu', kernel_initializer='he_uniform'))
 
@@ -62,14 +70,13 @@ def create_model(normalization_layer, units, dropout_rate, learning_rate):
     return model
 
 
-def build_model_for_tuner(hp):
+def build_model_for_tuner(hp, use_norm):
     hp_units = hp.Int('units', min_value=32, max_value=128, step=16)
     hp_dropout = hp.Float('dropout', min_value=0.0, max_value=0.5, step=0.1)
     hp_lr = hp.Choice('learning_rate', values=[1e-2, 1e-3, 1e-4])
-    return create_model(NORMALIZER_LAYER, hp_units, hp_dropout, hp_lr)
+    return create_model(NORMALIZER_LAYER, hp_units, hp_dropout, hp_lr, use_norm)
 
-
-def run_analysis():
+def run_analysis(use_norm):
     global NORMALIZER_LAYER
 
     data = load_data(DATA_FILE)
@@ -79,14 +86,14 @@ def run_analysis():
     NORMALIZER_LAYER = Normalization(axis=-1)
     NORMALIZER_LAYER.adapt(np.array(X_train))
 
-    baseline_model = create_model(NORMALIZER_LAYER, units=16, dropout_rate=0.0, learning_rate=0.001)
+    baseline_model = create_model(NORMALIZER_LAYER, units=16, dropout_rate=0.0, learning_rate=0.001, use_norm=use_norm)
 
     baseline_model.fit(X_train, y_train, epochs=20, verbose=0)
     baseline_score = baseline_model.evaluate(X_test, y_test, verbose=0)
     print(f"BASELINE Accuracy: {baseline_score[1]:.4f} (Loss: {baseline_score[0]:.4f})")
 
     tuner = kt.RandomSearch(
-        build_model_for_tuner,
+        lambda hp: build_model_for_tuner(hp, use_norm),
         objective='val_accuracy',
         max_trials=10,
         executions_per_trial=1,
@@ -131,8 +138,11 @@ def predict_from_args():
 
 
 if __name__ == "__main__":
-    if len(sys.argv) > 1:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--norm", type=int, choices=[0, 1], default=1, help="1=Tak, 0=Nie")
+
+    if len(sys.argv) > 1 and "--norm" not in sys.argv:
         predict_from_args()
-        pass
     else:
-        run_analysis()
+        args = parser.parse_args()
+        run_analysis(use_norm=bool(args.norm))
